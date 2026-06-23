@@ -1,0 +1,25 @@
+# Cœur deep learning
+torch>=2.2
+torchvision>=0.17
+
+# Dataset
+medmnist>=3.0.1
+
+# Suivi expérimental (obligatoire dans l'énoncé)
+mlflow>=2.10
+
+# Métriques et utilitaires ML
+scikit-learn>=1.3
+numpy>=1.24
+pandas>=2.0
+
+# Visualisation (EDA, courbes)
+matplotlib>=3.7
+seaborn>=0.13
+
+# Configuration et confort
+pyyaml>=6.0
+tqdm>=4.66
+
+# Démonstrateur (brique 5, ajouté plus tard)
+# streamlit>=1.30

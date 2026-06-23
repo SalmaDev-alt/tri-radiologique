@@ -1,0 +1,16 @@
+# Données et sorties (lourdes, régénérables)
+data/
+mlruns/
+mlartifacts/
+mlflow.db
+checkpoints/
+figures/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# VS Code
+.vscode/

@@ -1,0 +1,30 @@
+# Configuration par défaut du projet.
+# Tout choix d'hyperparamètre passe par ce fichier pour garantir la traçabilité
+# (exigence "pipeline propre et reproductible" + "documentation des choix" de l'énoncé).
+
+seed: 42                       # seed fixe -> reproductibilité
+
+data:
+  dataset: chestmnist          # sous-ensemble MedMNIST
+  size: 64                     # résolution : 64 | 128 | 224 (commencer en 64)
+  data_root: ./data            # cache de téléchargement MedMNIST
+  num_workers: 2
+  download: true
+
+train:
+  batch_size: 128
+  epochs: 50
+  lr: 0.001
+  weight_decay: 0.0001         # régularisation L2 (cf. cours 4.5)
+  optimizer: adamw             # adamw recommandé (cours 4.5)
+  scheduler: cosine            # cosine annealing | step | none
+  early_stopping_patience: 8   # arrêt anticipé (régularisation, cours 4.5)
+  monitor_metric: auc_macro    # métrique surveillée pour le meilleur modèle
+
+paths:
+  checkpoints: ./checkpoints   # sauvegarde du meilleur modèle
+  figures: ./figures           # sorties EDA et courbes
+
+mlflow:
+  experiment_name: tri-radiologique
+  tracking_uri: sqlite:///mlflow.db
