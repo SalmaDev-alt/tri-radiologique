@@ -31,3 +31,10 @@ paths:
 mlflow:
   experiment_name: tri-radiologique
   tracking_uri: sqlite:///mlflow.db
+
+anomaly:
+  latent_dim: 128              # dimension de l'espace latent (VAE)
+  beta: 1.0                    # poids du terme KL (VAE) ; cf. beta-VAE
+  threshold_percentile: 95     # seuil = 95e percentile des erreurs sur images normales (val)
+  epochs: 30
+  lr: 0.001

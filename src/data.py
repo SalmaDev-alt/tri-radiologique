@@ -3,7 +3,7 @@
 ChestMNIST est un dataset MULTI-LABEL : chaque radiographie peut présenter 0, 1 ou plusieurs
 des 14 pathologies. Les labels sont donc des vecteurs binaires de taille 14 (et non une classe
 unique). C'est pourquoi on utilisera une activation sigmoïde par classe + une perte BCE
-(et non softmax + cross-entropy).
+(et non softmax + cross-entropy), conformément à l'énoncé.
 
 Les splits train / val / test sont fournis officiellement par MedMNIST : on ne mélange pas
 soi-même pour éviter toute fuite de données (exigence "stratégie antifuite").
@@ -104,6 +104,50 @@ def get_dataloaders(config: dict[str, Any], smoke_test: bool = False, rgb: bool 
     t = config["train"]
     loader_args = dict(num_workers=config["data"]["num_workers"], pin_memory=True)
 
+    train_loader = DataLoader(train_ds, batch_size=t["batch_size"], shuffle=True, **loader_args)
+    val_loader = DataLoader(val_ds, batch_size=t["batch_size"], shuffle=False, **loader_args)
+    test_loader = DataLoader(test_ds, batch_size=t["batch_size"], shuffle=False, **loader_args)
+    return train_loader, val_loader, test_loader
+
+
+def get_anomaly_dataloaders(config: dict[str, Any], smoke_test: bool = False):
+    """DataLoaders pour la détection d'anomalies (brique 2).
+
+    Protocole (cf. énoncé) :
+    - ENTRAÎNEMENT et VALIDATION : uniquement des images NORMALES (aucune pathologie).
+      L'autoencodeur apprend ainsi à reconstruire l'anatomie normale.
+    - TEST : toutes les images. Une image est considérée "anomalie" si elle porte au moins
+      une pathologie. L'erreur de reconstruction servira de score d'anomalie.
+
+    Transform volontairement minimal (ToTensor seul, valeurs dans [0,1], 1 canal) : pas
+    d'augmentation aléatoire, pour que l'erreur de reconstruction reste comparable d'une image
+    à l'autre, et compatible avec la sortie sigmoïde du décodeur.
+    """
+    from torch.utils.data import Subset
+
+    d = config["data"]
+    common = dict(root=d["data_root"], size=d["size"], download=d["download"])
+    tf = transforms.Compose([transforms.ToTensor()])  # [0,1], 1 canal, déterministe
+
+    train = ChestMNIST(split="train", transform=tf, **common)
+    val = ChestMNIST(split="val", transform=tf, **common)
+    test = ChestMNIST(split="test", transform=tf, **common)
+
+    # indices des images normales (somme des 14 labels == 0)
+    train_normal = np.where(np.array(train.labels).sum(axis=1) == 0)[0]
+    val_normal = np.where(np.array(val.labels).sum(axis=1) == 0)[0]
+
+    train_ds = Subset(train, train_normal)
+    val_ds = Subset(val, val_normal)
+    test_ds = test  # toutes les images de test (normales + anormales)
+
+    if smoke_test:
+        train_ds = Subset(train, train_normal[:256])
+        val_ds = Subset(val, val_normal[:128])
+        test_ds = Subset(test, range(256))
+
+    t = config["train"]
+    loader_args = dict(num_workers=config["data"]["num_workers"], pin_memory=True)
     train_loader = DataLoader(train_ds, batch_size=t["batch_size"], shuffle=True, **loader_args)
     val_loader = DataLoader(val_ds, batch_size=t["batch_size"], shuffle=False, **loader_args)
     test_loader = DataLoader(test_ds, batch_size=t["batch_size"], shuffle=False, **loader_args)
