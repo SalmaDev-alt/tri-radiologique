@@ -4,6 +4,9 @@
 
 seed: 42                       # seed fixe -> reproductibilité
 
+model:
+  freeze_backbone: false       # transfer learning : false = fine-tuning complet, true = tête seule
+
 data:
   dataset: chestmnist          # sous-ensemble MedMNIST
   size: 64                     # résolution : 64 | 128 | 224 (commencer en 64)

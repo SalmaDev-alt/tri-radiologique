@@ -3,9 +3,9 @@
 Assemble toutes les briques de la fondation :
 - perte BCEWithLogitsLoss (= sigmoïde par classe + binary cross-entropy, multi-label),
   avec pos_weight pour compenser le déséquilibre des classes ;
-- optimiseur AdamW + scheduler cosine (cours 4.5) ;
+- optimiseur AdamW + scheduler cosine ;
 - early stopping sur la métrique surveillée (AUC macro par défaut) ;
-- sauvegarde du MEILLEUR modèle (exigence de l'énoncé) ;
+- sauvegarde du MEILLEUR modèle ;
 - tracking MLflow complet (hyperparamètres, métriques par époque, meilleur modèle).
 
 Usage :
@@ -27,7 +27,7 @@ from src.config import ensure_dirs, load_config, set_seed
 from src.data import PATHOLOGIES, compute_pos_weights, get_dataloaders
 from src.metrics import compute_metrics, per_class_table
 from src.mlflow_utils import log_metrics, start_run
-from src.models import build_model
+from src.models import build_model, get_in_channels
 
 
 def get_device() -> torch.device:
@@ -93,14 +93,18 @@ def train(model_name: str, config: dict, epochs: int, smoke_test: bool) -> None:
     device = get_device()
     print(f"Device : {device}")
 
-    train_loader, val_loader, test_loader = get_dataloaders(config, smoke_test=smoke_test)
+    # Le nombre de canaux dépend du modèle : 1 (CNN from scratch) ou 3 (modèles pré-entraînés).
+    in_channels = get_in_channels(model_name)
+    rgb = in_channels == 3
+    train_loader, val_loader, test_loader = get_dataloaders(config, smoke_test=smoke_test, rgb=rgb)
 
     # Perte multi-label avec compensation du déséquilibre
     pos_weight = compute_pos_weights(config).to(device)
     criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
+    freeze = config.get("model", {}).get("freeze_backbone", False)
     model = build_model(model_name, num_classes=len(PATHOLOGIES),
-                        in_channels=1).to(device)
+                        in_channels=in_channels, freeze_backbone=freeze).to(device)
     optimizer = build_optimizer(model, config)
     scheduler = build_scheduler(optimizer, config)
 
@@ -166,6 +170,8 @@ def parse_args():
     p = argparse.ArgumentParser(description="Entraînement classification multi-label ChestMNIST")
     p.add_argument("--model", default="cnn_scratch", help="nom du modèle (build_model)")
     p.add_argument("--epochs", type=int, default=None, help="surcharge le nombre d'époques")
+    p.add_argument("--lr", type=float, default=None,
+                   help="surcharge le learning rate (utile pour le fine-tuning : ex. 0.0001)")
     p.add_argument("--smoke-test", action="store_true",
                    help="petit sous-échantillon pour tester la chaîne sur CPU")
     p.add_argument("--config", default=None, help="chemin d'un YAML de config alternatif")
@@ -175,6 +181,8 @@ def parse_args():
 def main():
     args = parse_args()
     config = load_config(args.config) if args.config else load_config()
+    if args.lr is not None:
+        config["train"]["lr"] = args.lr
     epochs = args.epochs if args.epochs is not None else config["train"]["epochs"]
     train(args.model, config, epochs=epochs, smoke_test=args.smoke_test)
 

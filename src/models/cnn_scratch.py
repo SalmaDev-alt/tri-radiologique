@@ -1,13 +1,13 @@
 """CNN entraîné from scratch — premier modèle de la brique de classification supervisée.
 
-Architecture justifiée par rapport au cours (section 4.2) :
+Architecture justifiée par rapport au cours:
 - Blocs répétés Conv -> BatchNorm -> ReLU -> MaxPool, comme la logique "blocs/modules
-  répétitifs" introduite avec VGGNet (slide 49).
-- Noyaux 3x3 avec padding 1 (conservent la résolution), choix VGG (slide 49).
-- BatchNorm pour stabiliser l'apprentissage et régulariser implicitement (cours 4.5, slide 98).
-- ReLU pour la non-linéarité (slide 40).
+  répétitifs" introduite avec VGGNet.
+- Noyaux 3x3 avec padding 1 (conservent la résolution), choix VGG.
+- BatchNorm pour stabiliser l'apprentissage et régulariser implicitement.
+- ReLU pour la non-linéarité.
 - Global Average Pooling en fin de réseau plutôt qu'une grosse pile de couches denses :
-  réduit le nombre de paramètres et le surapprentissage (idée de GoogleNet, slide 50).
+  réduit le nombre de paramètres et le surapprentissage .
 - La sortie est un vecteur de 14 LOGITS (pas de softmax) : la sigmoïde + BCE sont appliquées
   dans la perte (multi-label), conformément à l'énoncé.
 """
@@ -60,11 +60,3 @@ class CNNScratch(nn.Module):
         x = self.features(x)
         x = self.gap(x)
         return self.classifier(x)
-
-
-def build_model(name: str, num_classes: int = 14, in_channels: int = 1) -> nn.Module:
-    """Fabrique de modèles. D'autres architectures (transfer learning, ViT) viendront ici."""
-    name = name.lower()
-    if name == "cnn_scratch":
-        return CNNScratch(num_classes=num_classes, in_channels=in_channels)
-    raise ValueError(f"Modèle inconnu : {name!r}")

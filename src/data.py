@@ -3,7 +3,7 @@
 ChestMNIST est un dataset MULTI-LABEL : chaque radiographie peut présenter 0, 1 ou plusieurs
 des 14 pathologies. Les labels sont donc des vecteurs binaires de taille 14 (et non une classe
 unique). C'est pourquoi on utilisera une activation sigmoïde par classe + une perte BCE
-(et non softmax + cross-entropy), conformément à l'énoncé.
+(et non softmax + cross-entropy).
 
 Les splits train / val / test sont fournis officiellement par MedMNIST : on ne mélange pas
 soi-même pour éviter toute fuite de données (exigence "stratégie antifuite").
@@ -17,6 +17,10 @@ import torch
 from medmnist.dataset import ChestMNIST  # import via le submodule (contourne l'__init__ fragile)
 from torch.utils.data import DataLoader
 from torchvision import transforms
+
+# Statistiques de normalisation ImageNet (pour les modèles pré-entraînés, mode RGB)
+IMAGENET_MEAN = [0.485, 0.456, 0.406]
+IMAGENET_STD = [0.229, 0.224, 0.225]
 
 # Les 14 pathologies de ChestMNIST, dans l'ordre des colonnes du vecteur de labels.
 # (ordre standard NIH ChestX-ray14 dont ChestMNIST est dérivé)
@@ -39,43 +43,56 @@ PATHOLOGIES = [
 NUM_CLASSES = len(PATHOLOGIES)
 
 
-def get_transforms(train: bool) -> transforms.Compose:
+def get_transforms(train: bool, rgb: bool = False) -> transforms.Compose:
     """Renvoie les transformations d'images.
 
     En entraînement, on ajoute une légère augmentation (flip horizontal, petite rotation)
     — utile sur un dataset déséquilibré (cours 4.5, data augmentation). On reste prudent :
     pas de flip vertical ni de transformation agressive qui dénaturerait une radiographie.
-    Normalisation simple sur 1 canal (images en niveaux de gris).
+
+    rgb=True : pour les modèles pré-entraînés ImageNet (DenseNet, ResNet). On convertit l'image
+    en 3 canaux (le gris est dupliqué) et on applique la normalisation ImageNet, ce qui est
+    indispensable pour réutiliser correctement les poids pré-entraînés.
+    rgb=False : 1 canal (niveaux de gris) pour le CNN from scratch.
     """
-    base = [transforms.ToTensor()]  # -> tenseur float [0,1], shape (1, H, W)
+    ops = []
+    if rgb:
+        ops.append(transforms.Grayscale(num_output_channels=3))  # 1 canal -> 3 canaux dupliqués
     if train:
-        aug = [
+        ops += [
             transforms.RandomHorizontalFlip(p=0.5),
             transforms.RandomRotation(degrees=5),
         ]
-        base = aug + base
-    base.append(transforms.Normalize(mean=[0.5], std=[0.5]))
-    return transforms.Compose(base)
+    ops.append(transforms.ToTensor())  # -> tenseur float [0,1]
+    if rgb:
+        ops.append(transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD))
+    else:
+        ops.append(transforms.Normalize(mean=[0.5], std=[0.5]))
+    return transforms.Compose(ops)
 
 
-def get_datasets(config: dict[str, Any]):
-    """Charge les trois splits officiels de ChestMNIST."""
+def get_datasets(config: dict[str, Any], rgb: bool = False):
+    """Charge les trois splits officiels de ChestMNIST.
+
+    rgb : si True, images converties en 3 canaux + normalisation ImageNet (modèles pré-entraînés).
+    """
     d = config["data"]
     common = dict(root=d["data_root"], size=d["size"], download=d["download"])
 
-    train_ds = ChestMNIST(split="train", transform=get_transforms(train=True), **common)
-    val_ds = ChestMNIST(split="val", transform=get_transforms(train=False), **common)
-    test_ds = ChestMNIST(split="test", transform=get_transforms(train=False), **common)
+    train_ds = ChestMNIST(split="train", transform=get_transforms(train=True, rgb=rgb), **common)
+    val_ds = ChestMNIST(split="val", transform=get_transforms(train=False, rgb=rgb), **common)
+    test_ds = ChestMNIST(split="test", transform=get_transforms(train=False, rgb=rgb), **common)
     return train_ds, val_ds, test_ds
 
 
-def get_dataloaders(config: dict[str, Any], smoke_test: bool = False):
+def get_dataloaders(config: dict[str, Any], smoke_test: bool = False, rgb: bool = False):
     """Construit les DataLoaders.
 
     smoke_test=True : ne garde qu'un petit sous-ensemble, pour vérifier rapidement que la
     chaîne tourne sur CPU avant de lancer les vrais runs sur Colab.
+    rgb : transmis aux transforms (3 canaux + normalisation ImageNet pour les modèles pré-entraînés).
     """
-    train_ds, val_ds, test_ds = get_datasets(config)
+    train_ds, val_ds, test_ds = get_datasets(config, rgb=rgb)
 
     if smoke_test:
         from torch.utils.data import Subset
