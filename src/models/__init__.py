@@ -10,13 +10,14 @@ from __future__ import annotations
 import torch.nn as nn
 
 from src.models.cnn_scratch import CNNScratch
-from src.models.transfer import build_densenet121, build_resnet50
+from src.models.transfer import build_densenet121, build_resnet50, build_vit_b16
 
 # Nombre de canaux attendus en entrée selon le modèle.
 MODEL_CHANNELS = {
     "cnn_scratch": 1,
     "densenet121": 3,
     "resnet50": 3,
+    "vit_b16": 3,
 }
 
 
@@ -47,6 +48,8 @@ def build_model(
         return build_densenet121(num_classes, pretrained, freeze_backbone)
     if name == "resnet50":
         return build_resnet50(num_classes, pretrained, freeze_backbone)
+    if name == "vit_b16":
+        return build_vit_b16(num_classes, pretrained, freeze_backbone)
     raise ValueError(f"Modèle inconnu : {name!r}. Choix : {list(MODEL_CHANNELS)}")
 
 
