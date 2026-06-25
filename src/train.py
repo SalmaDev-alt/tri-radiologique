@@ -3,9 +3,9 @@
 Assemble toutes les briques de la fondation :
 - perte BCEWithLogitsLoss (= sigmoïde par classe + binary cross-entropy, multi-label),
   avec pos_weight pour compenser le déséquilibre des classes ;
-- optimiseur AdamW + scheduler cosine ;
+- optimiseur AdamW + scheduler cosine (cours 4.5) ;
 - early stopping sur la métrique surveillée (AUC macro par défaut) ;
-- sauvegarde du MEILLEUR modèle ;
+- sauvegarde du MEILLEUR modèle (exigence de l'énoncé) ;
 - tracking MLflow complet (hyperparamètres, métriques par époque, meilleur modèle).
 
 Usage :
@@ -172,6 +172,8 @@ def parse_args():
     p.add_argument("--epochs", type=int, default=None, help="surcharge le nombre d'époques")
     p.add_argument("--lr", type=float, default=None,
                    help="surcharge le learning rate (utile pour le fine-tuning : ex. 0.0001)")
+    p.add_argument("--size", type=int, default=None,
+                   help="surcharge la résolution des images (64 | 128 | 224)")
     p.add_argument("--smoke-test", action="store_true",
                    help="petit sous-échantillon pour tester la chaîne sur CPU")
     p.add_argument("--config", default=None, help="chemin d'un YAML de config alternatif")
@@ -183,6 +185,8 @@ def main():
     config = load_config(args.config) if args.config else load_config()
     if args.lr is not None:
         config["train"]["lr"] = args.lr
+    if args.size is not None:
+        config["data"]["size"] = args.size
     epochs = args.epochs if args.epochs is not None else config["train"]["epochs"]
     train(args.model, config, epochs=epochs, smoke_test=args.smoke_test)
 
