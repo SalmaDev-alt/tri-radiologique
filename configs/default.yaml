@@ -38,3 +38,14 @@ anomaly:
   threshold_percentile: 95     # seuil = 95e percentile des erreurs sur images normales (val)
   epochs: 30
   lr: 0.001
+
+multimodal:
+  data_dir: ./data/openi       # dossier OpenI : images/ + indiana_reports.csv + indiana_projections.csv
+  size: 128                    # résolution des images OpenI
+  max_len: 200                 # longueur max des comptes-rendus (en tokens)
+  min_freq: 2                  # fréquence min d'un mot pour entrer dans le vocabulaire
+  emb_dim: 128                 # dimension des embeddings de mots
+  dim: 256                     # dimension commune image/texte (espace de fusion)
+  batch_size: 32
+  epochs: 20
+  lr: 0.001
