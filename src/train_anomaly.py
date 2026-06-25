@@ -148,6 +148,11 @@ def train(model_name: str, config: dict, epochs: int, smoke_test: bool) -> None:
         mlflow.log_param("threshold_percentile", p)
         mlflow.log_metric("threshold", threshold)
 
+        # Enregistrer le seuil dans le checkpoint (utile au démonstrateur)
+        ckpt = torch.load(ckpt_path, map_location=device)
+        ckpt["threshold"] = threshold
+        torch.save(ckpt, ckpt_path)
+
         # Évaluation sur le test (toutes images)
         test_err, test_anom = reconstruction_errors(model, test_loader, device, is_vae)
         auc = float(roc_auc_score(test_anom, test_err)) if test_anom.sum() > 0 else float("nan")
