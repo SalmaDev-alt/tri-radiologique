@@ -21,18 +21,25 @@ import torch.nn.functional as F
 class ConvAE(nn.Module):
     """Autoencodeur convolutif pour images 1x64x64.
 
-    Encodeur : 4 convolutions stride 2 (64 -> 32 -> 16 -> 8 -> 4).
-    Décodeur : 4 convolutions transposées symétriques (4 -> 8 -> 16 -> 32 -> 64).
+    Encodeur : 4 convolutions stride 2 (64 -> 32 -> 16 -> 8 -> 4), puis projection
+    dense vers un goulot latent de dimension latent_dim (compression réelle).
+    Décodeur : projection dense inverse puis 4 convolutions transposées (4 -> 64).
     """
 
-    def __init__(self, in_channels: int = 1, base: int = 32):
+    def __init__(self, in_channels: int = 1, base: int = 32, latent_dim: int = 64):
         super().__init__()
+        self._feat = base * 8   # canaux à la couche la plus profonde
+        self._spatial = 4       # carte 4x4 pour une entrée 64x64
         self.encoder = nn.Sequential(
             nn.Conv2d(in_channels, base, 4, stride=2, padding=1), nn.ReLU(inplace=True),       # 32x32
             nn.Conv2d(base, base * 2, 4, stride=2, padding=1), nn.BatchNorm2d(base * 2), nn.ReLU(inplace=True),  # 16x16
             nn.Conv2d(base * 2, base * 4, 4, stride=2, padding=1), nn.BatchNorm2d(base * 4), nn.ReLU(inplace=True),  # 8x8
             nn.Conv2d(base * 4, base * 8, 4, stride=2, padding=1), nn.BatchNorm2d(base * 8), nn.ReLU(inplace=True),  # 4x4
         )
+        flat = self._feat * self._spatial * self._spatial  # 4096
+        # Goulot d'étranglement réel : 4096 -> latent_dim -> 4096 (sinon pas de compression)
+        self.fc_enc = nn.Linear(flat, latent_dim)
+        self.fc_dec = nn.Linear(latent_dim, flat)
         self.decoder = nn.Sequential(
             nn.ConvTranspose2d(base * 8, base * 4, 4, stride=2, padding=1), nn.BatchNorm2d(base * 4), nn.ReLU(inplace=True),  # 8x8
             nn.ConvTranspose2d(base * 4, base * 2, 4, stride=2, padding=1), nn.BatchNorm2d(base * 2), nn.ReLU(inplace=True),  # 16x16
@@ -41,8 +48,10 @@ class ConvAE(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        z = self.encoder(x)
-        return self.decoder(z)
+        h = self.encoder(x).flatten(1)
+        z = self.fc_enc(h)
+        h = self.fc_dec(z).view(-1, self._feat, self._spatial, self._spatial)
+        return self.decoder(h)
 
 
 class ConvVAE(nn.Module):
@@ -107,7 +116,7 @@ def build_autoencoder(name: str, latent_dim: int = 128) -> nn.Module:
     """Fabrique : 'ae' -> ConvAE, 'vae' -> ConvVAE."""
     name = name.lower()
     if name == "ae":
-        return ConvAE()
+        return ConvAE(latent_dim=latent_dim)
     if name == "vae":
         return ConvVAE(latent_dim=latent_dim)
     raise ValueError(f"Modèle d'anomalie inconnu : {name!r} (choix : 'ae', 'vae')")
